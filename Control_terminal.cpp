@@ -14,12 +14,41 @@ Adafruit_SH1106G display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 // ==========================
 // EC11 Encoder Pins
 // ==========================
-#define ENCODER_CLK 12
-#define ENCODER_DT 4
+#define ENCODER_CLK 19
+#define ENCODER_DT  23
 
+// ==========================
 // Variables
-int counter = 0;
-int lastCLK;
+// ==========================
+volatile int counter = 0;
+
+// Debounce timer
+volatile unsigned long lastInterruptTime = 0;
+
+// ==========================
+// Encoder Interrupt
+// ==========================
+void IRAM_ATTR readEncoder() {
+
+  unsigned long currentTime = micros();
+
+  // Debounce (adjust if needed)
+  if (currentTime - lastInterruptTime > 3000) {
+
+    // Read encoder direction
+    if (digitalRead(ENCODER_DT) == HIGH) {
+      counter++;
+    } else {
+      counter--;
+    }
+
+    // Keep value between 0 and 9
+    if (counter > 99) counter = 0;
+    if (counter < 0) counter = 99;
+
+    lastInterruptTime = currentTime;
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -37,8 +66,12 @@ void setup() {
   pinMode(ENCODER_CLK, INPUT_PULLUP);
   pinMode(ENCODER_DT, INPUT_PULLUP);
 
-  // Read initial state
-  lastCLK = digitalRead(ENCODER_CLK);
+  // Interrupt on CLK rising edge
+  attachInterrupt(
+    digitalPinToInterrupt(ENCODER_CLK),
+    readEncoder,
+    RISING
+  );
 
   // Clear display
   display.clearDisplay();
@@ -47,42 +80,25 @@ void setup() {
 
 void loop() {
 
-  // ==========================
-  // Read Encoder
-  // ==========================
-  int currentCLK = digitalRead(ENCODER_CLK);
+  static int lastCounter = -1;
 
-  // Detect rotation
-  if (currentCLK != lastCLK && currentCLK == LOW) {
-
-    // Determine direction
-    if (digitalRead(ENCODER_DT) != currentCLK) {
-      counter++;
-    } else {
-      counter--;
-    }
-
-    // Limit from 0 to 9
-    if (counter > 9) counter = 0;
-    if (counter < 0) counter = 9;
+  // Update only if value changes
+  if (counter != lastCounter) {
 
     Serial.println(counter);
+
+    display.clearDisplay();
+
+    display.setTextSize(6);
+    display.setTextColor(SH110X_WHITE);
+    display.setCursor(30, 10);
+
+    display.println(counter);
+
+    display.display();
+
+    lastCounter = counter;
   }
-
-  lastCLK = currentCLK;
-
-  // ==========================
-  // Display Counter
-  // ==========================
-  display.clearDisplay();
-
-  display.setTextSize(6);
-  display.setTextColor(SH110X_WHITE);
-  display.setCursor(45, 10);
-
-  display.println(counter);
-
-  display.display();
 
   delay(1);
 }
