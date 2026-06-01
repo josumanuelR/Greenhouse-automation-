@@ -21,7 +21,7 @@ volatile bool encoderMoved = false;
 // =====================================================
 #define MENU_BUTTON     5
 #define CONFIRM_BUTTON  18
-#define BACK_BUTTON     16
+#define BACK_BUTTON     26
 
 volatile bool menuPressed = false;
 volatile bool confirmPressed = false;
@@ -46,7 +46,8 @@ Adafruit_NeoPixel pixel(NUMPIXELS, LED_PIN, NEO_GRB + NEO_KHZ800);
 // =====================================================
 // DASHBOARD VALUES
 // =====================================================
-int fanPower = 70;
+int fanPower = 0;
+
 int lightPower = 50;
 
 int temperature = 24;
@@ -74,6 +75,12 @@ enum ScreenState {
 
 ScreenState currentScreen = DASHBOARD;
 
+
+// =====================================================
+// PREVIOUS SCREEN
+// =====================================================
+ScreenState previousScreen = DASHBOARD;
+
 // =====================================================
 // MENU INDEXES
 // =====================================================
@@ -90,8 +97,8 @@ int* currentEditValue = nullptr;
 // MENU ITEMS
 // =====================================================
 const char* mainMenuItems[] = {
-  "Change Temp",
-  "Change Humidity",
+  "Change fanPower",
+  "Change lightPower",
   "Advanced Options"
 };
 
@@ -169,10 +176,7 @@ const unsigned char* animationFrames[] = {
 // =====================================================
 
 int currentFrame = 0;
-
 unsigned long lastFrameChange = 0;
-
-const int frameInterval = 100;
 
 // =====================================================
 // 12x12 BITMAPS
@@ -468,16 +472,21 @@ void handleButtons() {
       switch (mainMenuIndex) {
 
         case 0:
-          currentEditValue = &temperature;
+          previousScreen = MAIN_MENU;
+
+          currentEditValue = &fanPower;
           currentScreen = EDIT_VALUE;
           break;
 
         case 1:
-          currentEditValue = &humidity;
+          previousScreen = MAIN_MENU;
+
+          currentEditValue = &lightPower;
           currentScreen = EDIT_VALUE;
           break;
 
         case 2:
+          previousScreen = MAIN_MENU;
           currentScreen = ADVANCED_MENU;
           break;
       }
@@ -485,6 +494,7 @@ void handleButtons() {
 
     // ADVANCED MENU
     else if (currentScreen == ADVANCED_MENU) {
+      previousScreen = ADVANCED_MENU;
 
       currentEditValue = &changeTime;
       currentScreen = EDIT_VALUE;
@@ -497,33 +507,29 @@ void handleButtons() {
     }
   }
 
-  // =====================================================
-  // BACK BUTTON
-  // =====================================================
+// =====================================================
+// BACK BUTTON
+// =====================================================
   if (backPressed) {
 
     backPressed = false;
 
-    if (currentScreen == MAIN_MENU) {
+    switch (currentScreen) {
 
-      currentScreen = DASHBOARD;
-    }
+      case MAIN_MENU:
+        currentScreen = DASHBOARD;
+        break;
 
-    else if (currentScreen == ADVANCED_MENU) {
-
-      currentScreen = MAIN_MENU;
-    }
-
-    else if (currentScreen == EDIT_VALUE) {
-
-      if (currentEditValue == &changeTime) {
-
-        currentScreen = ADVANCED_MENU;
-      }
-      else {
-
+      case ADVANCED_MENU:
         currentScreen = MAIN_MENU;
-      }
+        break;
+
+      case EDIT_VALUE:
+        currentScreen = previousScreen;
+        break;
+
+      default:
+        break;
     }
   }
 }
@@ -657,15 +663,45 @@ void drawDashboard() {
 
 
 // =====================================================
-// UPDATE BITMAP ANIMATION
+// GET FAN ANIMATION SPEED
+// =====================================================
+uint16_t getFanAnimationInterval() {
+
+  if (fanPower == 0)
+    return 0;
+
+  if (fanPower <= 33)
+    return 200;
+
+  if (fanPower <= 66)
+    return 100;
+
+  if (fanPower <= 99)
+    return 50;
+
+  return 30; // 100%
+}
+
+
+// =====================================================
+// UPDATE FAN ANIMATION
 // =====================================================
 void updateBitmapAnimation() {
 
-  if (millis() - lastFrameChange >= frameInterval) {
+  uint16_t interval = getFanAnimationInterval();
+
+  // Fan stopped
+  if (interval == 0) {
+
+    currentFrame = 0;
+    return;
+  }
+
+  if (millis() - lastFrameChange >= interval) {
 
     currentFrame++;
 
-    if (currentFrame > 2) {
+    if (currentFrame >= 3) {
       currentFrame = 0;
     }
 
