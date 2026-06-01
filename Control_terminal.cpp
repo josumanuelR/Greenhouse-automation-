@@ -48,7 +48,7 @@ Adafruit_NeoPixel pixel(NUMPIXELS, LED_PIN, NEO_GRB + NEO_KHZ800);
 // =====================================================
 int fanPower = 0;
 
-int lightPower = 50;
+int lightPower = 0;
 
 int temperature = 24;
 int humidity = 60;
@@ -97,8 +97,8 @@ int* currentEditValue = nullptr;
 // MENU ITEMS
 // =====================================================
 const char* mainMenuItems[] = {
-  "Change fanPower",
-  "Change lightPower",
+  "Change Fan Power",
+  "Change Light Power",
   "Advanced Options"
 };
 
